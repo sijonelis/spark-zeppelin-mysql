@@ -1,0 +1,87 @@
+# docker-spark-1 acts as a Spark Master
+# Spark Master Web UI on port 9090
+
+version: '2'
+services:
+  docker-spark-1:
+    image: kduda/spark:latest
+    container_name: docker-spark-1
+    hostname: docker-spark-1
+    environment:
+      - SPARK_NODE_ROLE=master
+      - SPARK_MASTER_CORES=1
+      - SPARK_MASTER_MEMORY=1g
+      - SPARK_PUBLIC_DNS=localhost
+    volumes:
+      - data-1:/tmp
+    ports:
+      - 4040:4040
+      - 6066:6066
+      - 7077:7077
+      - 9090:8080
+    networks:
+      - spark-network
+
+  docker-spark-2:
+    image: kduda/spark:latest
+    container_name: docker-spark-2
+    environment:
+      - SPARK_NODE_ROLE=slave
+      - SPARK_MASTER_URL=docker-spark-1:7077
+      - SPARK_PUBLIC_DNS=localhost
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1g
+    volumes:
+      - data-2:/tmp
+    links:
+      - docker-spark-1
+    ports:
+      - 8081:8081
+    networks:
+      - spark-network
+
+  docker-zeppelin:
+    image: kduda/zeppelin:latest
+    container_name: docker-zeppelin
+    #volumes:
+    #  - /Projects/spark-zeppelin-tutorial/logs:/opt/zeppelin/logs
+    #  - /Projects/spark-zeppelin-tutorial/notebook:/opt/zeppelin/notebook
+    links:
+      - docker-spark-1
+    ports:
+      - 9080:8080
+      - 9443:8443
+    networks:
+      - spark-network
+      
+  mysql:
+    container_name: mysql
+    image: mysql:8.0.12
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    expose:
+      - "3306" #for service mysql-proxy
+    ports:
+      - "3307:3306" #for external connection
+    volumes:
+      - mysql-data:/var/lib/mysql #mysql-data
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: database
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    networks:
+      - spark-network
+
+volumes:
+  data-1:
+    driver: local
+  data-2:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  spark-network:
+    driver: bridge
